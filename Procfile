@@ -1,1 +1,1 @@
-web: gunicorn xferDxApp.wsgi
+web: gunicorn xferDx.wsgi
