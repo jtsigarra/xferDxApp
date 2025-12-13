@@ -144,3 +144,7 @@ AUTH_USER_MODEL = 'xferDxApp.User'
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600 
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.up.railway.app",
+]
