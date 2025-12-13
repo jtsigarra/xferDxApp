@@ -3,7 +3,7 @@ from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.contrib import messages
-from django.contrib.auth import logout, get_user_model
+from django.contrib.auth import logout
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
@@ -11,7 +11,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.core.files.base import ContentFile
-from django.core.management import call_command
 
 from weasyprint import HTML
 from datetime import date
@@ -21,18 +20,6 @@ from .models import Study, Patient, ProcedureSchedule, Attachment, Report
 from .decorators import role_required
 
 import os
-
-def run_migrations(request):
-    call_command("migrate", interactive=False)
-    return HttpResponse("Migrations complete!")
-
-def create_superuser(request):
-    User = get_user_model()
-    if not User.objects.filter(username='admin').exists():
-        # Change these credentials as needed
-        User.objects.create_superuser('admin', 'jysigarra@gmail.com', 'testing2025')
-        return HttpResponse("Superuser created successfully!")
-    return HttpResponse("Superuser already exists.")
 
 class CustomLoginView(LoginView):
     authentication_form = CustomLoginForm
