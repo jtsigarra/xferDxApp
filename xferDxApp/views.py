@@ -3,7 +3,7 @@ from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.contrib import messages
-from django.contrib.auth import logout
+from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
@@ -20,6 +20,14 @@ from .models import Study, Patient, ProcedureSchedule, Attachment, Report
 from .decorators import role_required
 
 import os
+
+def create_superuser(request):
+    User = get_user_model()
+    if not User.objects.filter(username='admin').exists():
+        # Change these credentials as needed
+        User.objects.create_superuser('admin', 'jysigarra@gmail.com', 'testing2025')
+        return HttpResponse("Superuser created successfully!")
+    return HttpResponse("Superuser already exists.")
 
 class CustomLoginView(LoginView):
     authentication_form = CustomLoginForm
