@@ -11,6 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.core.files.base import ContentFile
+from django.core.management import call_command
 
 from weasyprint import HTML
 from datetime import date
@@ -20,6 +21,10 @@ from .models import Study, Patient, ProcedureSchedule, Attachment, Report
 from .decorators import role_required
 
 import os
+
+def run_migrations(request):
+    call_command("migrate", interactive=False)
+    return HttpResponse("Migrations complete!")
 
 def create_superuser(request):
     User = get_user_model()

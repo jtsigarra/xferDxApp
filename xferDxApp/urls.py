@@ -3,9 +3,10 @@ from . import views
 from .views import CustomLoginView
 from django.conf import settings
 from django.conf.urls.static import static
-from xferDxApp.views import create_superuser
+from xferDxApp.views import create_superuser, run_migrations
 
 urlpatterns = [
+    path('run-migrations/', run_migrations),
     path('create-superuser/', create_superuser),
     path('', CustomLoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),
