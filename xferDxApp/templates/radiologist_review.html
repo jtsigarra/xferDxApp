@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Radiologist Review | RadiologyIS{% endblock %}
+
+{% block extra_styles %}
+    <link rel="stylesheet" href="{% static 'review.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="review-container">
+    <div class="pending-header">
+        <div>
+            <h1>🔍 Radiologist Review Dashboard</h1>
+            <p style="color: #666; margin-top: 0.5rem;">Review and edit uploaded DICOM studies</p>
+        </div>
+        <div>
+            <span class="badge badge-pending">{{ pending_studies.count }} Pending</span>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="notification">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if pending_studies %}
+        {% for study in pending_studies %}
+        <div class="study-card" id="study-{{ study.id }}">
+            <div class="study-header">
+                <div class="study-info">
+                    <div class="study-id">📋 Study ID: {{ study.study_id }}</div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <span class="badge badge-{{ study.exam_priority }}">{{ study.get_exam_priority_display }}</span>
+                        <span class="badge badge-pending">{{ study.get_status_display }}</span>
+                    </div>
+                </div>
+                <div style="color: #999; font-size: 0.9rem;">
+                    Uploaded: {{ study.upload_time|date:"M d, Y h:i A" }}
+                </div>
+            </div>
+
+            <div class="study-meta">
+                <div class="meta-item">
+                    <span class="meta-label">👤 Patient Name:</span>
+                    <span class="meta-value">{{ study.patient.first_name }} {{ study.patient.last_name }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">🆔 Patient ID:</span>
+                    <span class="meta-value">{{ study.patient.patient_id }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">📅 Date of Birth:</span>
+                    <span class="meta-value">{{ study.patient.date_of_birth|date:"M d, Y" }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">📁 File Name:</span>
+                    <span class="meta-value">{{ study.file_name }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">💾 File Size:</span>
+                    <span class="meta-value">{{ study.file_size|filesizeformat }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">📧 Patient Email:</span>
+                    <span class="meta-value">{{ study.patient.email_address }}</span>
+                </div>
+            </div>
+
+            {% if study.clinical_history %}
+            <div class="meta-item" style="margin-top: 1rem;">
+                <span class="meta-label">📝 Clinical History:</span>
+                <span class="meta-value">{{ study.clinical_history }}</span>
+            </div>
+            {% endif %}
+
+            {% if study.attachments.all %}
+            <div class="attachments-section">
+                <h4>📎 Attachments ({{ study.attachments.count }})</h4>
+                <div class="attachment-tags">
+                    {% for attachment in study.attachments.all %}
+                    <div class="attachment-tag">
+                        {% if attachment.file_type == 'image' %}
+                            🖼️
+                        {% elif attachment.file_type == 'document' %}
+                            📄
+                        {% elif attachment.file_type == 'video' %}
+                            🎥
+                        {% else %}
+                            📎
+                        {% endif %}
+                        {{ attachment.file_name }} ({{ attachment.file_size|filesizeformat }})
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-warning" onclick="toggleEditForm({{ study.id }})">
+                    ✏️ Edit Information
+                </button>
+                <button class="btn btn-primary" onclick="markAsCompleted({{ study.id }})">
+                    ✅ Mark as Completed
+                </button>
+                <button class="btn btn-secondary" onclick="viewPatient({{ study.patient.id }})">
+                    👁️ View Patient Details
+                </button>
+            </div>
+
+            <!-- Edit Form (Hidden by default) -->
+            <div class="edit-form" id="edit-form-{{ study.id }}">
+                <h4>Edit Study Information</h4>
+                <form id="form-{{ study.id }}" onsubmit="saveStudyInfo(event, {{ study.id }})">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="priority-{{ study.id }}">Exam Priority:</label>
+                            <select class="form-control" id="priority-{{ study.id }}" name="exam_priority">
+                                <option value="routine" {% if study.exam_priority == 'routine' %}selected{% endif %}>Routine</option>
+                                <option value="urgent" {% if study.exam_priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                                <option value="stat" {% if study.exam_priority == 'stat' %}selected{% endif %}>STAT</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="status-{{ study.id }}">Status:</label>
+                            <select class="form-control" id="status-{{ study.id }}" name="status">
+                                <option value="pending" {% if study.status == 'pending' %}selected{% endif %}>Pending Review</option>
+                                <option value="in_review" {% if study.status == 'in_review' %}selected{% endif %}>In Review</option>
+                                <option value="completed" {% if study.status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="rejected" {% if study.status == 'rejected' %}selected{% endif %}>Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="clinical-{{ study.id }}">Clinical History:</label>
+                        <textarea class="form-control" id="clinical-{{ study.id }}" name="clinical_history">{{ study.clinical_history }}</textarea>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="toggleEditForm({{ study.id }})">❌ Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">✅</div>
+            <h2>No Pending Studies</h2>
+            <p>All studies have been reviewed. Great work!</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleEditForm(studyId) {
+    const editForm = document.getElementById('edit-form-' + studyId);
+    editForm.classList.toggle('active');
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function saveStudyInfo(event, studyId) {
+    event.preventDefault();
+    
+    const form = document.getElementById('form-' + studyId);
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch(`/update-study/${studyId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Study information updated successfully!', 'success');
+            
+            // Update the badges
+            const priority = formData.get('exam_priority');
+            const status = formData.get('status');
+            const studyCard = document.getElementById('study-' + studyId);
+            
+            // Reload page to show updated information
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showNotification('Error updating study: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+async function markAsCompleted(studyId) {
+    if (!confirm('Mark this study as completed?')) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('status', 'completed');
+    
+    try {
+        const response = await fetch(`/update-study/${studyId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('Study marked as completed!', 'success');
+            
+            // Remove the study card from view
+            const studyCard = document.getElementById('study-' + studyId);
+            studyCard.style.opacity = '0';
+            setTimeout(() => {
+                studyCard.remove();
+                
+                // Check if there are no more studies
+                const remainingStudies = document.querySelectorAll('.study-card');
+                if (remainingStudies.length === 0) {
+                    location.reload();
+                }
+            }, 500);
+        } else {
+            showNotification('Error: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+function viewPatient(patientId) {
+    window.location.href = `/patient/${patientId}/`;
+}
+
+function showNotification(message, type) {
+    // Remove existing notifications
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(n => n.remove());
+    
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    
+    if (type === 'error') {
+        notification.style.background = '#f44336';
+    }
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Auto-hide Django messages
+document.addEventListener('DOMContentLoaded', () => {
+    const djangoMessages = document.querySelectorAll('.notification');
+    djangoMessages.forEach(msg => {
+        setTimeout(() => {
+            msg.style.opacity = '0';
+            setTimeout(() => msg.remove(), 300);
+        }, 3000);
+    });
+});
+</script>
+{% endblock %}

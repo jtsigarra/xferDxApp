@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Patient | RadiologyIS{% endblock %}
+
+{% block content %}
+<!-- Patients Section -->
+<div id="patients" class="section active">
+    <h2>👥 Patient Management</h2><br>
+
+    <div style="margin-bottom: 2rem;">
+        <a href="{% url 'add_patient' %}"><button class="btn btn-primary">Add New Patient</button></a>
+    </div>
+
+    <div style="margin-top: 2rem;">
+        <h3>Schedule New Procedure</h3>
+
+        <form method="post" action="{% url 'schedule_procedure' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="schedulePatientId">Patient Name</label>
+                <select id="schedulePatientId" name="patient" required>
+                    <option value="">Select Patient</option>
+                    {% for patient in patients %}
+                        <option value="{{ patient.id }}">{{ patient.last_name|upper }}, {{ patient.first_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="scheduleProcedure">Procedure Type</label>
+                <select id="scheduleProcedure" name="procedure_type" required>
+                    <option value="">Select Procedure</option>
+                    <option value="xray">X-Ray</option>
+                    <option value="ct">CT Scan</option>
+                    <option value="mri">MRI</option>
+                    <option value="ultrasound">Ultrasound</option>
+                    <option value="mammography">Mammography</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="scheduleDate">Date</label>
+                <input type="date" id="scheduleDate" name="date" required>
+            </div>
+
+            <div class="form-group">
+                <label for="scheduleTime">Time</label>
+                <input type="time" id="scheduleTime" name="time" required>
+            </div>
+
+            <div class="form-group">
+                <label for="scheduleNotes">Special Instructions</label>
+                <textarea id="scheduleNotes" name="special_instructions" rows="2"
+                    placeholder="Any special instructions for the patient"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Schedule & Notify Patient</button>
+        </form>
+    </div> <br><br>
+    
+    <h3>Scheduled Procedures</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Patient Name</th>
+                <th>Exam Type</th>
+                <th>Date of Visit</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="studiesTable">
+            {% for schedule in schedules %}
+                <tr>
+                    <td>{{ schedule.patient.patient_id }}</td>
+                    <td>{{ schedule.patient.first_name }} {{ schedule.patient.last_name }}</td>
+                    <td>{{ schedule.get_procedure_type_display }}</td>
+                    <td>{{ schedule.date|date:"Y-m-d" }}</td>
+                    <td>
+                        {% if schedule.status == 'scheduled' %}
+                            <span class="status-badge status-pending">Scheduled</span>
+                        {% elif schedule.status == 'uploaded' %}
+                            <span class="status-badge status-reading">Uploaded</span>
+                        {% elif schedule.status == 'finalized' %}
+                            <span class="status-badge status-completed">Finalized</span>
+                        {% endif %}
+                    </td>
+                    <td><a href="{% url 'patient_detail' schedule.patient.id %}" class="btn btn-primary">View</a></td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center;">No scheduled procedures found.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

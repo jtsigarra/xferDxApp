@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | RadiologyIS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="hero">
+        <h1>Advanced Radiology Information System</h1>
+        <p>Complete platform for DICOM management, remote reading, telehealth integration, and patient communication</p>
+        <a href="{% url 'upload_dicom' %}"><button class="btn btn-primary">Start Uploading DICOM Files</button></a>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard" class="section active">
+        <h2>📊 Dashboard</h2>
+                
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ studies }}</div>
+                    <div>Total Studies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ pending_reads }}</div>
+                    <div>Pending Reads</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ urgent_studies }}</div>
+                    <div>Urgent Studies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ patients.count }}</div>
+                    <div>Active Patients</div>
+                </div>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📁</div>
+                    <h3>DICOM Upload & Management</h3>
+                    <p>Secure upload and organization of DICOM images with automatic metadata extraction and validation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">👩‍⚕️</div>
+                    <h3>Remote Reading</h3>
+                    <p>Integration with third-party DICOM viewers for radiologists to read studies from anywhere.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎥</div>
+                    <h3>Telehealth Integration</h3>
+                    <p>Seamless connection with telehealth platforms for virtual consultations and exam requests.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📧</div>
+                    <h3>Patient Communication</h3>
+                    <p>Automated email notifications for appointments, results, and secure report sharing.</p>
+                </div>
+            </div>
+
+            <h3>Recent Patients</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Patient Name</th>
+                            <th>Exam Type</th>
+                            <th>Date of Visit</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studiesTable">
+                        {% for schedule in schedules %}
+                            <tr>
+                                <td>{{ schedule.patient.patient_id }}</td>
+                                <td>{{ schedule.patient.first_name }} {{ schedule.patient.last_name }}</td>
+                                <td>{{ schedule.get_procedure_type_display }}</td>
+                                <td>{{ schedule.date|date:"Y-m-d" }}</td>
+                                <td>
+                                    {% if schedule.status == 'scheduled' %}
+                                        <span class="status-badge status-pending">Scheduled</span>
+                                    {% elif schedule.status == 'uploaded' %}
+                                        <span class="status-badge status-reading">Uploaded</span>
+                                    {% elif schedule.status == 'finalized' %}
+                                        <span class="status-badge status-completed">Finalized</span>
+                                    {% endif %}
+                                </td>
+                                <td><a href="{% url 'patient_detail' schedule.patient.id %}" class="btn btn-primary">View</a></td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" style="text-align:center;">No scheduled procedures found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+        </div>
+
+    <!-- Notification Container -->
+    <div id="notification" class="notification"></div>
+{% endblock %}

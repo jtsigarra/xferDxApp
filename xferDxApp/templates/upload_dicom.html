@@ -1,0 +1,569 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Upload Dicom | RadiologyIS{% endblock %}
+
+{% block extra_styles %}
+    <link rel="stylesheet" href="{% static 'upload.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="dicomUpload" class="section active">
+    <h1 style="margin-bottom: 2rem;">📂 Upload DICOM Files</h1>
+
+    <!-- Progress Steps -->
+    <div class="progress-steps">
+        <div class="progress-line" id="progressLine"></div>
+        <div class="step active" data-step="1">
+            <div class="step-circle">1</div>
+            <div class="step-label">Select Files</div>
+        </div>
+        <div class="step" data-step="2">
+            <div class="step-circle">2</div>
+            <div class="step-label">Review Exams</div>
+        </div>
+        <div class="step" data-step="3">
+            <div class="step-circle">3</div>
+            <div class="step-label">Add Attachments</div>
+        </div>
+        <div class="step" data-step="4">
+            <div class="step-circle">4</div>
+            <div class="step-label">Upload</div>
+        </div>
+    </div>
+
+    <!-- Step 1: Select Files -->
+    <div class="step-content active" id="step1">
+        <h3>Step 1: Select DICOM Files</h3>
+        <div class="file-drop-zone" id="dropZone">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📂</div>
+            <h4>Drag & Drop DICOM files here</h4>
+            <p>or click to browse</p>
+            <input type="file" id="dicomInput" multiple accept=".dcm,.dicom" style="display: none;">
+        </div>
+
+        <div class="selected-files-list" id="filesList" style="display: none;">
+            <h4>Selected Files (<span id="fileCount">0</span>)</h4>
+            <div id="filesContainer"></div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-secondary" disabled>Previous</button>
+            <button class="btn btn-primary" id="nextToStep2" disabled>Next: Review Exams</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Review Exams -->
+    <div id="step2" class="step-content">
+        <h2>🩻 Review Exam Information</h2>
+        <p>Select the patient and one of their scheduled procedures.</p>
+
+        <div class="form-grid">
+            <!-- Select Patient -->
+            <div class="form-group">
+                <label for="patientSelect">Select Patient:</label>
+                <select id="patientSelect" name="patient_id" required>
+                    <option value="">-- Select Patient --</option>
+                    {% for patient in patients %}
+                        <option 
+                            value="{{ patient.id }}"
+                            data-name="{{ patient.first_name }} {{ patient.last_name }}"
+                            data-pid="{{ patient.patient_id }}"
+                            data-dob="{{ patient.date_of_birth|date:'Y-m-d' }}"
+                        >
+                            {{ patient.patient_id }} - {{ patient.first_name }} {{ patient.last_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Select Scheduled Procedure -->
+            <div class="form-group">
+                <label for="procedureSelect">Scheduled Procedure:</label>
+                <select id="procedureSelect" name="procedure_schedule_id" required>
+                    <option value="">-- Choose Patient First --</option>
+                </select>
+            </div>
+
+            <!-- Exam Priority -->
+            <div class="form-group">
+                <label for="examPriority">Exam Priority:</label>
+                <select id="examPriority" name="exam_priority" required>
+                    <option value="">-- Select Priority --</option>
+                    <option value="routine">Routine</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="stat">STAT</option>
+                </select>
+            </div>
+
+            <!-- Clinical History -->
+            <div class="form-group full-width">
+                <label for="clinicalHistory">Clinical History / Notes:</label>
+                <textarea id="clinicalHistory" name="clinical_history" rows="3" placeholder="Enter clinical notes..."></textarea>
+            </div>
+        </div>
+
+        <!-- Exam Info Summary -->
+        <div id="examInfoCards" class="exam-info-section"></div>
+
+        <div class="btn-container">
+            <button id="backToStep1" type="button" class="btn btn-secondary">⬅ Back</button>
+            <button id="nextToStep3" type="button" class="btn btn-primary" disabled>Next ➡</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Add Attachments -->
+    <div class="step-content" id="step3">
+        <h3>Step 3: Add Supporting Attachments (Optional)</h3>
+        
+        <div class="attachment-upload-area">
+            <div class="attachment-btn">
+                <button class="btn btn-primary" type="button" onclick="document.getElementById('attachmentInput').click()">
+                    📎 Add Attachments
+                </button>
+                <div class="supported-files-tooltip">
+                    <strong>Supported Files:</strong><br>
+                    🖼️ Images: JPEG, PNG, GIF<br>
+                    📄 Documents: PDF, DOC, DOCX, TXT<br>
+                    🎥 Videos: MP4, AVI, MOV, WMV
+                </div>
+            </div>
+            <input type="file" id="attachmentInput" multiple 
+                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.mp4,.avi,.mov,.wmv" 
+                   style="display: none;">
+            <p style="margin-top: 1rem; color: #666;">Add any supporting files (lab results, previous reports, etc.)</p>
+        </div>
+
+        <div class="attachment-list" id="attachmentList" style="display: none;">
+            <h4>Attachments (<span id="attachmentCount">0</span>)</h4>
+            <div id="attachmentsContainer"></div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-secondary" id="backToStep2">Previous</button>
+            <button class="btn btn-primary" id="nextToStep4">Next: Upload</button>
+        </div>
+    </div>
+
+    <!-- Step 4: Upload -->
+    <div class="step-content" id="step4">
+        <h3>Step 4: Review and Upload</h3>
+        
+        <div class="exam-info-card">
+            <h4>Upload Summary</h4>
+            <div class="exam-details">
+                <div class="detail-item">
+                    <span class="detail-label">Patient:</span>
+                    <span class="detail-value" id="summaryPatient">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Patient ID:</span>
+                    <span class="detail-value" id="summaryPatientID">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Date of Birth:</span>
+                    <span class="detail-value" id="summaryDOB">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Procedure:</span>
+                    <span class="detail-value" id="summaryProcedure">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">DICOM Files:</span>
+                    <span class="detail-value" id="summaryDicomCount">0</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Attachments:</span>
+                    <span class="detail-value" id="summaryAttachmentCount">0</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Priority:</span>
+                    <span class="detail-value" id="summaryPriority">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Total Size:</span>
+                    <span class="detail-value" id="summaryTotalSize">0 MB</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-progress" id="uploadProgress" style="display: none;">
+            <h4>Uploading Files...</h4>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progressBarFill">0%</div>
+            </div>
+            <p style="text-align: center; margin-top: 1rem; color: #666;" id="uploadStatus">Preparing upload...</p>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-secondary" id="backToStep3">Previous</button>
+            <button class="btn btn-primary" id="uploadButton">🚀 Start Upload</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedFiles = [];
+let attachmentFiles = [];
+let currentStep = 1;
+
+// Step Navigation
+function goToStep(step) {
+    document.querySelectorAll('.step').forEach(s => {
+        const stepNum = parseInt(s.dataset.step);
+        s.classList.remove('active', 'completed');
+        if (stepNum === step) {
+            s.classList.add('active');
+        } else if (stepNum < step) {
+            s.classList.add('completed');
+        }
+    });
+
+    document.querySelectorAll('.step-content').forEach(c => {
+        c.classList.remove('active');
+    });
+    document.getElementById('step' + step).classList.add('active');
+
+    const progressLine = document.getElementById('progressLine');
+    const percentage = ((step - 1) / 3) * 100;
+    progressLine.style.width = percentage + '%';
+
+    currentStep = step;
+}
+
+// Step 1: File Selection
+const dropZone = document.getElementById('dropZone');
+const dicomInput = document.getElementById('dicomInput');
+
+dropZone.addEventListener('click', () => dicomInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+
+dicomInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+});
+
+function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    displayFiles();
+    document.getElementById('nextToStep2').disabled = selectedFiles.length === 0;
+}
+
+function displayFiles() {
+    const filesList = document.getElementById('filesList');
+    const filesContainer = document.getElementById('filesContainer');
+    const fileCount = document.getElementById('fileCount');
+
+    if (selectedFiles.length === 0) {
+        filesList.style.display = 'none';
+        return;
+    }
+
+    filesList.style.display = 'block';
+    fileCount.textContent = selectedFiles.length;
+    filesContainer.innerHTML = '';
+
+    selectedFiles.forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item selected';
+        fileItem.innerHTML = `
+            <div class="file-info">
+                <div class="file-name">📄 ${file.name}</div>
+                <div class="file-meta">Size: ${formatFileSize(file.size)} | Type: DICOM</div>
+            </div>
+            <input type="checkbox" class="file-checkbox" checked data-index="${index}">
+        `;
+        filesContainer.appendChild(fileItem);
+
+        const checkbox = fileItem.querySelector('.file-checkbox');
+        checkbox.addEventListener('change', () => {
+            fileItem.classList.toggle('selected', checkbox.checked);
+        });
+    });
+}
+
+// Step 2: Review Exams
+// Load procedures dynamically when a patient is selected
+document.getElementById('patientSelect').addEventListener('change', updateExamInfo);
+document.getElementById('procedureSelect').addEventListener('change', updateExamInfo);
+
+function updateExamInfo() {
+    const patientSelect = document.getElementById('patientSelect');
+    const procedureSelect = document.getElementById('procedureSelect');
+    const examInfoCards = document.getElementById('examInfoCards');
+
+    if (!patientSelect.value || !procedureSelect.value) {
+        examInfoCards.innerHTML = '';
+        document.getElementById('nextToStep3').disabled = true;
+        return;
+    }
+
+    const selectedPatient = patientSelect.options[patientSelect.selectedIndex];
+    const patientName = selectedPatient.dataset.name;
+    const patientID = selectedPatient.dataset.pid;
+    const patientDOB = selectedPatient.dataset.dob;
+    const procedure = procedureSelect.options[procedureSelect.selectedIndex].text;
+
+    const selectedDicomFiles = selectedFiles.filter((file, index) => {
+        const checkbox = document.querySelector(`input[data-index="${index}"]`);
+        return checkbox && checkbox.checked;
+    });
+
+    examInfoCards.innerHTML = `
+        <div class="exam-info-card selected">
+            <div class="exam-header">
+                <h4>📋 Exam Information</h4>
+            </div>
+            <div class="exam-details">
+                <div class="detail-item"><span class="detail-label">👤 Patient Name:</span><span class="detail-value">${patientName}</span></div>
+                <div class="detail-item"><span class="detail-label">🆔 Patient ID:</span><span class="detail-value">${patientID}</span></div>
+                <div class="detail-item"><span class="detail-label">📅 Date of Birth:</span><span class="detail-value">${patientDOB}</span></div>
+                <div class="detail-item"><span class="detail-label">🏥 Procedure:</span><span class="detail-value">${procedure}</span></div>
+                <div class="detail-item"><span class="detail-label">🖼️ Number of Images:</span><span class="detail-value">${selectedDicomFiles.length} file(s)</span></div>
+                <div class="detail-item"><span class="detail-label">💾 Total Size:</span><span class="detail-value">${formatFileSize(selectedDicomFiles.reduce((sum, f) => sum + f.size, 0))}</span></div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('nextToStep3').disabled = false;
+}
+
+document.getElementById('patientSelect').addEventListener('change', async function() {
+    const patientId = this.value;
+    const procedureSelect = document.getElementById('procedureSelect');
+    procedureSelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (!patientId) {
+        procedureSelect.innerHTML = '<option value="">-- Choose Patient First --</option>';
+        updateExamInfo();
+        return;
+    }
+
+    try {
+        const response = await fetch(`/get-procedures/${patientId}/`);
+        const data = await response.json();
+
+        if (data.procedures.length === 0) {
+            procedureSelect.innerHTML = '<option value="">No scheduled procedures found</option>';
+            updateExamInfo();
+            return;
+        }
+
+        procedureSelect.innerHTML = '<option value="">-- Select Procedure --</option>';
+        data.procedures.forEach(proc => {
+            const option = document.createElement('option');
+            option.value = proc.id;
+            option.textContent = `${proc.procedure_type.toUpperCase()} - ${proc.date}`;
+            procedureSelect.appendChild(option);
+        });
+
+    } catch (error) {
+        procedureSelect.innerHTML = '<option value="">Error loading procedures</option>';
+    }
+
+    updateExamInfo();
+});
+
+// Make sure both dropdowns trigger updates
+patientSelect.addEventListener('change', updateExamInfo);
+procedureSelect.addEventListener('change', updateExamInfo);
+
+// Step 3: Attachments
+const attachmentInput = document.getElementById('attachmentInput');
+attachmentInput.addEventListener('change', (e) => {
+    attachmentFiles = Array.from(e.target.files);
+    displayAttachments();
+});
+
+function displayAttachments() {
+    const attachmentList = document.getElementById('attachmentList');
+    const attachmentsContainer = document.getElementById('attachmentsContainer');
+    const attachmentCount = document.getElementById('attachmentCount');
+
+    if (attachmentFiles.length === 0) {
+        attachmentList.style.display = 'none';
+        return;
+    }
+
+    attachmentList.style.display = 'block';
+    attachmentCount.textContent = attachmentFiles.length;
+    attachmentsContainer.innerHTML = '';
+
+    attachmentFiles.forEach((file, index) => {
+        const icon = getFileIcon(file.name);
+        const attachmentItem = document.createElement('div');
+        attachmentItem.className = 'attachment-item';
+        attachmentItem.innerHTML = `
+            <div>
+                <strong>${icon} ${file.name}</strong>
+                <div style="font-size: 0.85rem; color: #666;">${formatFileSize(file.size)}</div>
+            </div>
+            <button class="remove-attachment" onclick="removeAttachment(${index})">Remove</button>
+        `;
+        attachmentsContainer.appendChild(attachmentItem);
+    });
+}
+
+function removeAttachment(index) {
+    attachmentFiles.splice(index, 1);
+    displayAttachments();
+}
+
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return '🖼️';
+    if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) return '📄';
+    if (['mp4', 'avi', 'mov', 'wmv'].includes(ext)) return '🎥';
+    return '📎';
+}
+
+// Step 4: Upload Summary
+document.getElementById('nextToStep4').addEventListener('click', () => {
+    updateUploadSummary();
+    goToStep(4);
+});
+
+function updateUploadSummary() {
+    const patientSelect = document.getElementById('patientSelect');
+    const selectedOption = patientSelect.options[patientSelect.selectedIndex];
+    const procedureSelect = document.getElementById('procedureSelect');
+    const examPriority = document.getElementById('examPriority');
+
+    const selectedDicomFiles = selectedFiles.filter((file, index) => {
+        const checkbox = document.querySelector(`input[data-index="${index}"]`);
+        return checkbox && checkbox.checked;
+    });
+
+    const totalSize = selectedDicomFiles.reduce((sum, f) => sum + f.size, 0) + 
+                     attachmentFiles.reduce((sum, f) => sum + f.size, 0);
+
+    document.getElementById('summaryPatient').textContent = selectedOption.dataset.name;
+    document.getElementById('summaryPatientID').textContent = selectedOption.dataset.pid;
+    document.getElementById('summaryDOB').textContent = selectedOption.dataset.dob;
+    document.getElementById('summaryProcedure').textContent = procedureSelect.options[procedureSelect.selectedIndex].text;
+    document.getElementById('summaryDicomCount').textContent = selectedDicomFiles.length;
+    document.getElementById('summaryAttachmentCount').textContent = attachmentFiles.length;
+    document.getElementById('summaryPriority').textContent = examPriority.options[examPriority.selectedIndex].text;
+    document.getElementById('summaryTotalSize').textContent = formatFileSize(totalSize);
+}
+
+// Upload Function
+document.getElementById('uploadButton').addEventListener('click', uploadFiles);
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function uploadFiles() {
+    const uploadButton = document.getElementById('uploadButton');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const uploadStatus = document.getElementById('uploadStatus');
+
+    uploadButton.disabled = true;
+    uploadProgress.style.display = 'block';
+
+    const selectedDicomFiles = selectedFiles.filter((file, index) => {
+        const checkbox = document.querySelector(`input[data-index="${index}"]`);
+        return checkbox && checkbox.checked;
+    });
+
+    const formData = new FormData();
+    formData.append('patient_id', document.getElementById('patientSelect').value);
+    formData.append('procedure_schedule_id', document.getElementById('procedureSelect').value);
+    formData.append('exam_priority', document.getElementById('examPriority').value);
+    formData.append('clinical_history', document.getElementById('clinicalHistory').value);
+
+    selectedDicomFiles.forEach(file => {
+        formData.append('dicom_files', file);
+    });
+
+    attachmentFiles.forEach(file => {
+        formData.append('attachment_files', file);
+    });
+
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 5;
+        if (progress <= 90) {
+            progressBarFill.style.width = progress + '%';
+            progressBarFill.textContent = progress + '%';
+        }
+    }, 200);
+
+    try {
+        uploadStatus.textContent = 'Uploading files to server...';
+        
+        const response = await fetch('{% url "process_dicom_upload" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        clearInterval(progressInterval);
+        
+        const result = await response.json();
+
+        if (result.success) {
+            progressBarFill.style.width = '100%';
+            progressBarFill.textContent = '100%';
+            uploadStatus.textContent = '✅ Upload complete!';
+            uploadStatus.style.color = '#4CAF50';
+
+            setTimeout(() => {
+                window.location.href = '{% url "dashboard" %}';
+            }, 2000);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        clearInterval(progressInterval);
+        uploadStatus.textContent = '❌ Upload failed: ' + error.message;
+        uploadStatus.style.color = '#f44336';
+        uploadButton.disabled = false;
+    }
+}
+
+// Navigation Buttons
+document.getElementById('nextToStep2').addEventListener('click', () => goToStep(2));
+document.getElementById('backToStep1').addEventListener('click', () => goToStep(1));
+document.getElementById('nextToStep3').addEventListener('click', () => goToStep(3));
+document.getElementById('backToStep2').addEventListener('click', () => goToStep(2));
+document.getElementById('backToStep3').addEventListener('click', () => goToStep(3));
+
+// Utility Functions
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+</script>
+{% endblock %}

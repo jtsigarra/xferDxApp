@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports | RadiologyIS{% endblock %}
+
+{% block content %}
+<!-- Reports Section -->
+<div id="reports" class="section active">
+    <h1>📋 Radiology Reports</h1>
+
+    <div class="report-editor" id="reportEditor">
+        <h3>Report Editor</h3>
+
+        <form method="POST" action="{% url 'reports' %}" onsubmit="prepareReportData(event)">
+            {% csrf_token %}
+
+            <!-- Patient selection -->
+            <div class="form-group">
+                <label for="patientSelect">Select Patient:</label>
+                <select id="patientSelect" name="patient_id" required>
+                    <option value="">-- Select Patient --</option>
+                    {% for patient in patients %}
+                        <option 
+                            value="{{ patient.id }}"
+                            data-name="{{ patient.first_name }} {{ patient.last_name }}"
+                            data-pid="{{ patient.patient_id }}"
+                            data-dob="{{ patient.date_of_birth|date:'Y-m-d' }}"
+                        >
+                            {{ patient.patient_id }} - {{ patient.first_name }} {{ patient.last_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Procedure selection -->
+            <div class="form-group">
+                <label for="procedureSelect">Scheduled Procedure:</label>
+                <select id="procedureSelect" name="procedure_schedule_id" required>
+                    <option value="">-- Choose Patient First --</option>
+                </select>
+            </div>
+
+            <!-- Editable fields -->
+            <div class="form-group">
+                <label>Findings</label>
+                <div class="editor-content" id="findingsEditor" contenteditable="true">
+                    Click here to start typing your findings...
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Impression</label>
+                <div class="editor-content" id="impressionEditor" contenteditable="true">
+                    Click here to enter your impression...
+                </div>
+            </div>
+
+            <!-- Hidden inputs for actual POST data -->
+            <input type="hidden" name="findings" id="findingsInput">
+            <input type="hidden" name="impression" id="impressionInput">
+
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-primary" type="submit">Save Report</button>
+            </div>
+        </form>
+
+    </div><br><br>
+</div>
+
+<script>
+    function prepareReportData(event) {
+        const saveButton = event.target.querySelector('button[type="submit"]');
+        saveButton.disabled = true;
+
+        // Copy editor content into hidden inputs
+        document.getElementById("findingsInput").value =
+            document.getElementById("findingsEditor").innerHTML.trim();
+        document.getElementById("impressionInput").value =
+            document.getElementById("impressionEditor").innerHTML.trim();
+    }
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const patientSelect = document.getElementById('patientSelect');
+        const procedureSelect = document.getElementById('procedureSelect');
+
+        patientSelect.addEventListener('change', function() {
+            const patientId = this.value;
+            procedureSelect.innerHTML = '<option value="">Loading...</option>';
+
+            if (!patientId) {
+                procedureSelect.innerHTML = '<option value="">-- Choose Patient First --</option>';
+                return;
+            }
+
+            fetch(`/get-uploaded-procedures/?patient_id=${patientId}`)
+                .then(response => response.json())
+                .then(data => {
+                    procedureSelect.innerHTML = '';
+                    if (data.procedures.length > 0) {
+                        data.procedures.forEach(proc => {
+                            const option = document.createElement('option');
+                            const date = new Date(proc.date).toISOString().split('T')[0];
+                            option.value = proc.id;
+                            option.textContent = `${proc.procedure_type.toUpperCase()} — ${date}`;
+                            procedureSelect.appendChild(option);
+                        });
+                    } else {
+                        procedureSelect.innerHTML = '<option value="">No uploaded procedures found</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading procedures:', error);
+                    procedureSelect.innerHTML = '<option value="">Error loading procedures</option>';
+                });
+        });
+    });
+</script>
+
+
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Patient | RadiologyIS{% endblock %}
+
+{% block content %}
+<div class="section active">
+    <h1 class="text-center mb-4">Add Patient</h1><br>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST" class="needs-validation" novalidate>
+        {% csrf_token %}
+        <div class="form-group">
+
+            <!-- Basic Information Section -->
+            <h2 class="card-title mb-3">Basic Information</h2>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name:</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                        <div class="text-danger">{{ form.first_name.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.middle_name.id_for_label }}" class="form-label">Middle Name:</label>
+                    {{ form.middle_name }}
+                    {% if form.middle_name.errors %}
+                        <div class="text-danger">{{ form.middle_name.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name:</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                        <div class="text-danger">{{ form.last_name.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">Date of Birth:</label>
+                    {{ form.date_of_birth }}
+                    {% if form.date_of_birth.errors %}
+                        <div class="text-danger">{{ form.date_of_birth.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.gender.id_for_label }}" class="form-label">Gender:</label>
+                    {{ form.gender }}
+                    {% if form.gender.errors %}
+                        <div class="text-danger">{{ form.gender.errors }}</div>
+                    {% endif %}
+                </div>
+            </div><br>
+
+            <!-- Contact Information Section -->
+            <h2 class="card-title mb-3 mt-4">Contact Information</h2>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.phone_number.id_for_label }}" class="form-label">Phone Number:</label>
+                    {{ form.phone_number }}
+                    {% if form.phone_number.errors %}
+                        <div class="text-danger">{{ form.phone_number.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.email_address.id_for_label }}" class="form-label">Email Address:</label>
+                    {{ form.email_address }}
+                    {% if form.email_address.errors %}
+                        <div class="text-danger">{{ form.email_address.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.emergency_contact.id_for_label }}" class="form-label">Emergency Contact:</label>
+                    {{ form.emergency_contact }}
+                    {% if form.emergency_contact.errors %}
+                        <div class="text-danger">{{ form.emergency_contact.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.emergency_contact_number.id_for_label }}" class="form-label">Emergency Contact #:</label>
+                    {{ form.emergency_contact_number }}
+                    {% if form.emergency_contact_number.errors %}
+                        <div class="text-danger">{{ form.emergency_contact_number.errors }}</div>
+                    {% endif %}
+                </div>
+            </div><br>
+
+            <!-- Primary Physician Section -->
+            <h2 class="card-title mb-3 mt-4">Primary Physician</h2>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="{{ form.physician_name.id_for_label }}" class="form-label">Physician Name:</label>
+                    {{ form.physician_name }}
+                    {% if form.physician_name.errors %}
+                        <div class="text-danger">{{ form.physician_name.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.physician_email.id_for_label }}" class="form-label">Physician Email Address:</label>
+                    {{ form.physician_email }}
+                    {% if form.physician_email.errors %}
+                        <div class="text-danger">{{ form.physician_email.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.physician_phone.id_for_label }}" class="form-label">Physician Phone Number:</label>
+                    {{ form.physician_phone }}
+                    {% if form.physician_phone.errors %}
+                        <div class="text-danger">{{ form.physician_phone.errors }}</div>
+                    {% endif %}
+                </div>
+            </div><br>
+
+            <!-- Payment Section -->
+            <h2 class="card-title mb-3 mt-4">Payment Method</h2>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.payment_mode.id_for_label }}" class="form-label">Payment Mode:</label>
+                    {{ form.payment_mode }}
+                    {% if form.payment_mode.errors %}
+                        <div class="text-danger">{{ form.payment_mode.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <br>
+
+            <!-- Form Buttons -->
+            <div class="row mt-4">
+                <div class="col-12 text-center">
+                    <a href="{% url 'dashboard' %}">
+                        <button type="button" class="btn btn-secondary btn-lg px-5 me-3">Cancel</button>
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg px-5">Add Patient</button>
+                </div>
+            </div>
+
+        </div> 
+    </form>
+</div>
+{% endblock %}

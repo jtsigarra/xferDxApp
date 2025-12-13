@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block title %}Patient Details | RadiologyIS{% endblock %}
+
+{% block content %}
+    <div id='patient-details' class="section active">
+        <!-- Header with Back Button -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Patient Details</h1>
+        </div>
+
+        <!-- Patient ID Badge -->
+        <div class="alert alert-info">
+            <strong>Patient ID:</strong> {{ patient.patient_id }}
+            <span class="float-end"><strong>Added:</strong> {{ patient.created_at|date:"F d, Y g:i A" }}</span>
+        </div><br>
+        <div class="text-center mt-4 mb-5">
+            <a href="{% url 'patient' %}" class="btn btn-secondary btn-lg px-5">← Back to Patient List</a>
+        </div>
+        <br><hr><br>
+
+        <div class="row">
+            <!-- Left Column: Patient Information -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <!-- Basic Information Section -->
+                        <h2 class="card-title mb-3">📋 Basic Information</h2>
+                        
+                        <div class="mb-3">
+                            <strong>Full Name:</strong><br>
+                            {{ patient.first_name }} 
+                            {% if patient.middle_name %}{{ patient.middle_name }}{% endif %} 
+                            {{ patient.last_name }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Date of Birth:</strong><br>
+                            {{ patient.date_of_birth|date:"F d, Y" }}
+                        </div>
+
+                        <br><hr><br>
+
+                        <!-- Contact Information Section -->
+                        <h2 class="card-title mb-3 mt-4">📞 Contact Information</h2>
+                        
+                        <div class="mb-3">
+                            <strong>Phone Number:</strong><br>
+                            {{ patient.phone_number }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Email Address:</strong><br>
+                            <a href="mailto:{{ patient.email_address }}">{{ patient.email_address }}</a>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Emergency Contact:</strong><br>
+                            {{ patient.emergency_contact }}
+                        </div>
+
+                        <br><hr><br>
+
+                        <!-- Primary Physician Section -->
+                        <h2 class="card-title mb-3 mt-4">👨‍⚕️ Primary Physician</h2>
+                        
+                        <div class="mb-3">
+                            <strong>Physician Name:</strong><br>
+                            {{ patient.physician_name }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Physician Email:</strong><br>
+                            <a href="mailto:{{ patient.physician_email }}">{{ patient.physician_email }}</a>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Physician Phone:</strong><br>
+                            {{ patient.physician_phone }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <br><hr><br>
+
+            <!-- Right Column: Procedure & DICOM -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title mb-3">🏥 Payment Information</h2>
+                        <div class="mb-3">
+                            <strong>Payment Mode:</strong><br>
+                            <span class="badge bg-success">{{ patient.get_payment_mode_display }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <br><hr><br>
+                
+                <!-- DICOM Files Card -->
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title mb-3">📁 DICOM Files</h2>
+                        
+                        {% if studies %}
+                            <!-- If DICOM files exist -->
+                            <p class="text-muted mb-3">{{ studies|length }} file(s) available</p><br>
+
+                            <!-- Scrollable container for long lists -->
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                <div class="list-group">
+                                    {% for study in studies %}
+                                    <div class="stat-card">
+                                        <div class="d-flex w-100 justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <h6 class="mb-0"><strong>{{ study.study_id }}</strong></h6>
+                                                    <span class="badge 
+                                                        {% if study.exam_priority == 'stat' %}bg-danger
+                                                        {% elif study.exam_priority == 'urgent' %}bg-warning text-dark
+                                                        {% else %}bg-secondary{% endif %}">
+                                                        {{ study.get_exam_priority_display }}
+                                                    </span>
+                                                </div>
+                                                
+                                                <p class="mb-1 text-muted small">
+                                                    📅 {{ study.upload_time|date:"M d, Y g:i A" }}
+                                                    {% if study.file_name %}
+                                                    | 📄 {{ study.file_name }}
+                                                    {% endif %}
+                                                </p>
+                                                
+                                                {% if study.clinical_history %}
+                                                <p class="mb-0 text-muted small mt-1">
+                                                    {{ study.clinical_history|truncatewords:15 }}
+                                                </p>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- DOWNLOAD BUTTON -->
+                                            <div class="ms-2">
+                                                <a href="{% url 'download_dicom' study.id %}" class="btn btn-sm btn-success" title="Download DICOM file">
+                                                    📥 Download
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div><br>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                        {% else %}
+                            <!-- If no DICOM files exist -->
+                            <div class="alert alert-warning text-center">
+                                <p class="mb-0">📂 No DICOM files uploaded yet</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div> <br>
+
+        <br><hr><br>
+
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-3">📝 Reports</h2>
+
+                {% if reports %}
+                    <p class="text-muted mb-3">{{ reports|length }} report(s) available</p>
+
+                    <div class="list-group">
+                        {% for report in reports %}
+                        <div class="stat-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>Report for {{ report.procedure_schedule }}</strong><br>
+                                    <small class="text-muted">Created: {{ report.created_at|date:"M d, Y g:i A" }}</small>
+                                </div>
+
+                                {% if report.pdf %}
+                                    <a href="{{ report.pdf.url }}" class="btn btn-sm btn-primary" download>
+                                        📥 Download Report
+                                    </a>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">No PDF saved</span>
+                                {% endif %}
+                            </div>
+                        </div><br>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning text-center">
+                        No reports available.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Additional Actions -->
+        <div class="text-center mt-4 mb-5">
+            <a href="{% url 'patient' %}" class="btn btn-secondary btn-lg px-5">← Back to Patient List</a>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RadiologyIS - Advanced Radiology Information System{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'dashBoardStyle.css' %}">
+    {% block extra_styles %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="logo">🏥 XferDX</div>
+            <div class="nav-buttons">
+                <a href="{% url 'dashboard' %}"><button class="btn btn-secondary">Dashboard</button></a>
+                <a href="{% url 'upload_dicom' %}"><button class="btn btn-secondary" >Upload DICOM</button></a>
+                <a href="{% url 'reports' %}"><button class="btn btn-secondary">Reports</button>
+                <a href="{% url 'telehealth' %}"><button class="btn btn-secondary">Telehealth</button></a>
+                <a href="{% url 'patient' %}"><button class="btn btn-secondary">Patients</button></a>
+
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary">Logout</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <div class="container">
+        {% block content %}
+        <!-- Child templates insert their content here -->
+        {% endblock %}
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification" class="notification"></div>
+
+    {% block scripts %}
+    <script src="{% static 'main.js' %}"></script>
+    {% endblock %}
+</body>
+</html>

@@ -1,0 +1,31 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Login | RadiologyIS {% endblock %}</title>
+        <link rel="stylesheet" href="{% static 'dashBoardStyle.css' %}">
+    </head>
+    <body>
+
+        <div class="login-container">
+            <div class="login-box">
+                <img src="{% static 'images/logo.png' %}" alt="XferDX Logo" class="login-logo">
+                <h2>Login</h2>
+
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.username }}
+                    {{ form.password }}
+                    <button type="submit" class="btn-login">Login</button>
+                </form>
+
+                <a href="/admin/">
+                    <button type="button" class="btn-admin">Login as Admin</button>
+                </a>
+            </div>
+        </div>
+
+    </body>
+</html>

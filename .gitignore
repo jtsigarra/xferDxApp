@@ -1,0 +1,58 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*$py.class
+
+# === Django specific ===
+*.log
+local_settings.py
+db.sqlite3-journal
+media/
+
+# === Environment / virtualenv ===
+venv/
+env/
+ENV/
+.venv/
+.env/
+*.env
+*.venv
+.Python
+
+# === IDE / Editor ===
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# === OS files ===
+.DS_Store
+Thumbs.db
+
+# === PyInstaller ===
+*.spec
+
+# === Unit test / coverage ===
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+coverage.xml
+
+# === MyPy / Type checking ===
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+
+# === Logs ===
+*.log
+logs/
+
+# === Misc ===
+*.bak
+*.tmp
