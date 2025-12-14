@@ -1,26 +1,26 @@
 import os
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xferDx.settings")
-django.setup()
+try:
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xferDx.settings")
+    django.setup()
 
-from django.contrib.auth import get_user_model
+    from django.contrib.auth import get_user_model
 
-User = get_user_model()
+    User = get_user_model()
 
-username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
-email = os.environ.get("DJANGO_SUPERUSER_EMAIL")
-password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
+    username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
+    email = os.environ.get("DJANGO_SUPERUSER_EMAIL", "")
+    password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
 
-if username and password:
-    if not User.objects.filter(username=username).exists():
-        User.objects.create_superuser(
-            username=username,
-            email=email or "",
-            password=password,
-        )
-        print("✅ Superuser created")
+    if username and password:
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username, email, password)
+            print("✅ Superuser created")
+        else:
+            print("ℹ️ Superuser already exists")
     else:
-        print("ℹ️ Superuser already exists")
-else:
-    print("⚠️ Superuser env vars not set")
+        print("⚠️ Superuser env vars missing")
+
+except Exception as e:
+    print("❌ Superuser creation failed:", e)
