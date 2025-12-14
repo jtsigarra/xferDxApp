@@ -171,8 +171,9 @@ class ProcedureSchedule(models.Model):
                 (self.patient.last_name[:1] or '').upper()
             ).strip() or 'PAT'
 
-            count = ProcedureSchedule.objects.filter(patient=self.patient).count() + 1
-            self.study_id = f"{initials}-{count:04d}"
+            # Short UUID suffix (collision-safe)
+            unique_part = uuid.uuid4().hex[:6].upper()
+            self.study_id = f"{initials}-{unique_part}"
 
         super().save(*args, **kwargs)
 
