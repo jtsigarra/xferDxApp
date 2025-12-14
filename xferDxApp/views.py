@@ -332,3 +332,17 @@ def calculate_age(birth_date):
 @login_required
 def no_permission(request):
     return render(request, "forbidden.html", status=403)
+
+@login_required
+def get_uploaded_procedures(request):
+    patient_id = request.GET.get('patient_id')
+
+    if not patient_id:
+        return JsonResponse({'procedures': []})
+
+    procedures = ProcedureSchedule.objects.filter(
+        patient_id=patient_id,
+        status='uploaded'
+    ).values('id', 'procedure_type', 'date')
+
+    return JsonResponse({'procedures': list(procedures)})
