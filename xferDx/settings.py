@@ -152,3 +152,17 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600
 CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app",
 ]
+
+if os.environ.get("CREATE_SUPERUSER") == "jtsigarra":
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
+        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
+
+        if username and password and not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username=username, email="", password=password)
+            print("✅ Superuser created")
+    except Exception as e:
+        print("❌ Superuser creation error:", e)
