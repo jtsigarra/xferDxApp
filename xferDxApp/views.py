@@ -334,7 +334,9 @@ def schedule_procedure(request):
             f"Special Instructions: {notes or 'None'}\n\n"
             "Thank you,\nRadiology Department"
         )
-        
+
+        print("PATIENT EMAIL:", patient.email_address)
+
         if patient.email_address:
             send_mail_async(subject, message, [patient.email_address])
 
