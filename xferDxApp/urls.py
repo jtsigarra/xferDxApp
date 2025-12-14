@@ -25,6 +25,9 @@ urlpatterns = [
     path('process_dicom_upload/', views.process_dicom_upload, name='process_dicom_upload'),
     path('download_dicom/<int:dicom_id>/', views.download_dicom, name='download_dicom'),
 
+    # DICOM Viewer
+    path('dicom-viewer/<int:study_id>/', views.dicom_viewer, name='dicom_viewer'),
+
     # Procedures
     path('schedule/', views.schedule_procedure, name='schedule_procedure'),
     path('get-studies/', views.get_studies_for_patient, name='get_studies'),
@@ -33,6 +36,8 @@ urlpatterns = [
     # Radiologist Review
     path('radiologist-review/', views.radiologist_review, name='radiologist_review'),
     path('update-study/<int:study_id>/', views.update_study_info, name='update_study_info'),
+
+    path('no-permission/', views.no_permission, name='no_permission'),
 ]
 
 if settings.DEBUG:

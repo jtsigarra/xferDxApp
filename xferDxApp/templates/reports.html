@@ -1,120 +1,77 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Reports | RadiologyIS{% endblock %}
 
+{% block extra_styles %}
+    <link rel="stylesheet" href="{% static 'reports.css' %}">
+{% endblock %}
+
 {% block content %}
+
 <!-- Reports Section -->
 <div id="reports" class="section active">
     <h1>📋 Radiology Reports</h1>
 
     <div class="report-editor" id="reportEditor">
-        <h3>Report Editor</h3>
-
-        <form method="POST" action="{% url 'reports' %}" onsubmit="prepareReportData(event)">
-            {% csrf_token %}
-
-            <!-- Patient selection -->
-            <div class="form-group">
-                <label for="patientSelect">Select Patient:</label>
-                <select id="patientSelect" name="patient_id" required>
-                    <option value="">-- Select Patient --</option>
-                    {% for patient in patients %}
-                        <option 
-                            value="{{ patient.id }}"
-                            data-name="{{ patient.first_name }} {{ patient.last_name }}"
-                            data-pid="{{ patient.patient_id }}"
-                            data-dob="{{ patient.date_of_birth|date:'Y-m-d' }}"
-                        >
-                            {{ patient.patient_id }} - {{ patient.first_name }} {{ patient.last_name }}
-                        </option>
+        <!-- Uploaded Studies Table -->
+        <div class="studies-table-container">
+            <h3>
+                <span>🔬</span>
+                <span>Uploaded Studies - DICOM Available</span>
+            </h3>
+                
+            <table class="studies-table">
+                <thead>
+                    <tr>
+                        <th>Patient Information</th>
+                        <th>Procedure Type</th>
+                        <th>Upload Date & Time</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for schedule in schedules %}
+                        {% with study=schedule.studies.all|first %}
+                            {% if study %}
+                                <tr>
+                                    <td>
+                                        <div class="patient-id">{{ schedule.patient.patient_id }}</div>
+                                        <div class="patient-name">
+                                            {{ schedule.patient.first_name }} {{ schedule.patient.last_name }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="procedure-badge procedure-{{ schedule.procedure_type }}">
+                                            {{ schedule.get_procedure_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="datetime-info">
+                                            <span class="date-text">{{ study.upload_time|date:"M d, Y" }}</span>
+                                            <span class="time-text">{{ study.upload_time|date:"g:i A" }}</span>
+                                        </div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <a href="{% url 'dicom_viewer' study.id %}" class="view-btn">
+                                            <span>🔬</span>
+                                            <span>View DICOM</span>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endwith %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="empty-state">
+                                <div class="empty-state-icon">📁</div>
+                                <div>No uploaded studies with DICOM files found</div>
+                            </td>
+                        </tr>
                     {% endfor %}
-                </select>
-            </div>
-
-            <!-- Procedure selection -->
-            <div class="form-group">
-                <label for="procedureSelect">Scheduled Procedure:</label>
-                <select id="procedureSelect" name="procedure_schedule_id" required>
-                    <option value="">-- Choose Patient First --</option>
-                </select>
-            </div>
-
-            <!-- Editable fields -->
-            <div class="form-group">
-                <label>Findings</label>
-                <div class="editor-content" id="findingsEditor" contenteditable="true">
-                    Click here to start typing your findings...
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Impression</label>
-                <div class="editor-content" id="impressionEditor" contenteditable="true">
-                    Click here to enter your impression...
-                </div>
-            </div>
-
-            <!-- Hidden inputs for actual POST data -->
-            <input type="hidden" name="findings" id="findingsInput">
-            <input type="hidden" name="impression" id="impressionInput">
-
-            <div style="display: flex; gap: 1rem;">
-                <button class="btn btn-primary" type="submit">Save Report</button>
-            </div>
-        </form>
-
-    </div><br><br>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
-
-<script>
-    function prepareReportData(event) {
-        const saveButton = event.target.querySelector('button[type="submit"]');
-        saveButton.disabled = true;
-
-        // Copy editor content into hidden inputs
-        document.getElementById("findingsInput").value =
-            document.getElementById("findingsEditor").innerHTML.trim();
-        document.getElementById("impressionInput").value =
-            document.getElementById("impressionEditor").innerHTML.trim();
-    }
-
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const patientSelect = document.getElementById('patientSelect');
-        const procedureSelect = document.getElementById('procedureSelect');
-
-        patientSelect.addEventListener('change', function() {
-            const patientId = this.value;
-            procedureSelect.innerHTML = '<option value="">Loading...</option>';
-
-            if (!patientId) {
-                procedureSelect.innerHTML = '<option value="">-- Choose Patient First --</option>';
-                return;
-            }
-
-            fetch(`/get-uploaded-procedures/?patient_id=${patientId}`)
-                .then(response => response.json())
-                .then(data => {
-                    procedureSelect.innerHTML = '';
-                    if (data.procedures.length > 0) {
-                        data.procedures.forEach(proc => {
-                            const option = document.createElement('option');
-                            const date = new Date(proc.date).toISOString().split('T')[0];
-                            option.value = proc.id;
-                            option.textContent = `${proc.procedure_type.toUpperCase()} — ${date}`;
-                            procedureSelect.appendChild(option);
-                        });
-                    } else {
-                        procedureSelect.innerHTML = '<option value="">No uploaded procedures found</option>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading procedures:', error);
-                    procedureSelect.innerHTML = '<option value="">Error loading procedures</option>';
-                });
-        });
-    });
-</script>
-
-
 {% endblock %}

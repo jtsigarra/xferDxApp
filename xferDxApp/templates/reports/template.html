@@ -117,12 +117,12 @@
 
         <div class="row">
             <div>Age: {{ age }} &nbsp;&nbsp;&nbsp; Gender: {{ patient.gender }}</div>
-            <div>Request Date: 10-13-2025 14:04:22</div>
+            <div>Request Date: {{ procedure_schedule.created_at|date:"m-d-Y H:i:s" }}</div>
         </div>
 
         <div class="row">
-            <div>Doctor Name: Sample Doctor</div>
-            <div>Release Date: 10-15-2025 04:01:02</div>
+            <div>Doctor Name: {{ report.created_by.first_name }} {{ report.created_by.last_name }}</div>
+            <div>Release Date: {{ report.created_at|date:"m-d-Y H:i:s" }}</div>
         </div>
 
         <!-- TITLE -->
@@ -132,13 +132,13 @@
         </div><br><br><br><br><br>
 
         <!-- FINDINGS -->
-        <div class="findings">
+        <div class="findings" style="white-space: pre-line;">
             {{ report.findings }}
         </div>
 
         <!-- IMPRESSION -->
         <div class="impression-title">IMPRESSION:</div>
-        <div class="impression">
+        <div class="impression"  style="white-space: pre-line;">
             {{ report.impression }}
         </div>
     </div>
@@ -147,7 +147,7 @@
     <div class="bottom">
         <div class="row">
             <div>Michelle Ann L. Madrigal, RRT</div>
-            <div>DOCTOR SAMPLE, MD FRCR FUSP</div>
+            <div>{{ report.created_by.first_name }} {{ report.created_by.last_name }}</div>
         </div>
         <div class="row">
             <div>Radiologic Technologist</div>

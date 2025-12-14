@@ -117,7 +117,7 @@ class Study(models.Model):
 
 
     def __str__(self):
-        return f"Study for {self.patient.first_name} {self.patient.last_name} - {self.procedure_schedule.procedure_type} ({self.procedure_schedule.date})"
+        return f"Study #{self.pk}"
 
     class Meta:
         ordering = ['-upload_time']
@@ -134,7 +134,7 @@ class Attachment(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"Attachment: {self.file_name} for {self.study.study_id}"
+        return f"Attachment #{self.pk}"
     
     class Meta:
         ordering = ['-uploaded_at']
@@ -186,6 +186,14 @@ class Report(models.Model):
     findings = models.TextField(blank=True)
     impression = models.TextField(blank=True)
     pdf = models.FileField(upload_to='reports/', null=True, blank=True)
+    
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

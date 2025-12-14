@@ -1,0 +1,554 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DICOM Viewer - {{ study.procedure_schedule.study_id }} | RadiologyIS</title>
+    
+    <!-- Use unpkg CDN instead - more reliable -->
+    <script src="https://unpkg.com/cornerstone-core@2.6.1/dist/cornerstone.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-math@0.1.10/dist/cornerstoneMath.min.js"></script>
+    <script src="https://unpkg.com/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-tools@6.0.10/dist/cornerstoneTools.min.js"></script>
+    <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+    <script src="https://unpkg.com/cornerstone-wado-image-loader@4.13.2/dist/cornerstoneWADOImageLoader.bundle.min.js"></script>
+    <link rel="stylesheet" href="{% static 'dicomViewer.css' %}">
+</head>
+<body>
+    <div class="viewer-container">
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <div>Loading DICOM Image...</div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div class="viewer-header">
+            <div class="patient-info">
+                <div class="patient-name">
+                    {{ patient.first_name }} {{ patient.last_name }}
+                </div>
+                <div class="patient-details">
+                    Patient ID: {{ patient.patient_id }} | Study: {{ study.procedure_schedule.study_id }} | 
+                    Uploaded: {{ study.upload_time|date:"M d, Y g:i A" }}
+                </div>
+            </div>
+            <div class="header-actions">
+                <!-- Related Studies Dropdown -->
+                {% if related_studies.count > 1 %}
+                <div class="study-selector">
+                    <label for="studySelect">📁 Related Studies:</label>
+                    <select id="studySelect">
+                        {% for related_study in related_studies %}
+                        <option 
+                            value="{{ related_study.id }}" 
+                            data-url="{% url 'dicom_viewer' related_study.id %}"
+                            data-file-url="{{ related_study.file.url }}"
+                            {% if related_study.id == study.id %}selected{% endif %}>
+                            {{ related_study.procedure_schedule.study_id }} - 
+                            {{ related_study.procedure_schedule.get_procedure_type_display }} - 
+                            {{ related_study.upload_time|date:"M d, Y" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <a href="{% url 'reports' %}" class="btn btn-secondary">
+                    ← Back to Reports
+                </a>
+                <a href="{% url 'download_dicom' study.id %}" class="btn btn-primary">
+                    📥 Download
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Viewer Area -->
+        <div class="viewer-main">
+            <!-- Toolbar - Only Working Tools -->
+            <div class="toolbar">
+                <button class="tool-btn active" id="panTool" title="Pan" data-tool="Pan">
+                    ✋
+                </button>
+                <button class="tool-btn" id="zoomTool" title="Zoom" data-tool="Zoom">
+                    🔍
+                </button>
+                <button class="tool-btn" id="resetTool" title="Reset View">
+                    🔄
+                </button>
+                <button class="tool-btn" id="invertTool" title="Invert Colors">
+                    ◐
+                </button>
+            </div>
+
+            <!-- DICOM Viewport -->
+            <div class="dicom-viewport-container">
+                <div id="dicomViewport">
+                    <div class="viewport-overlay" id="viewportOverlay"></div>
+                </div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <div class="info-section">
+                    <h3>📋 Report Inputs</h3>
+                    <form method="POST" action="{% url 'dicom_viewer' study.id %}" onsubmit="prepareReportData(event)">
+                        {% csrf_token %}
+                        <!-- Editable fields -->
+                        <div class="form-group">
+                            <label>Findings</label>
+                            <div class="editor-content" id="findingsEditor" contenteditable="true">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Impression</label>
+                            <div class="editor-content impression-editor" id="impressionEditor" contenteditable="true">
+                            </div>
+                        </div><br>
+
+                        <!-- Hidden inputs for actual POST data -->
+                        <input type="hidden" name="findings" id="findingsInput">
+                        <input type="hidden" name="impression" id="impressionInput">
+
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" type="submit">Save Report</button>
+                        </div>
+                    </form>
+                </div>
+
+                {% if attachments %}
+                <div class="info-section attachments-panel">
+
+                    <h3>📎 Attachments</h3>
+
+                    {% for attachment in attachments %}
+                    <div class="attachment-row">
+
+                        <div class="attachment-icon">
+                            {% if attachment.file_type == "image" %}🖼
+                            {% elif attachment.file_type == "document" %}📄
+                            {% else %}📎{% endif %}
+                        </div>
+
+                        <div class="attachment-info">
+                            <div class="attachment-name">
+                                {{ attachment.file_name|truncatechars:28 }}
+                            </div>
+                            <div class="attachment-meta">
+                                {{ attachment.file_type|upper }} •
+                                {{ attachment.file_size|filesizeformat }} •
+                                {{ attachment.uploaded_at|date:"M d, Y" }}
+                            </div>
+                        </div>
+
+                        <div class="attachment-actions">
+                            {% if attachment.file_type == "image" or attachment.file_type == "pdf" %}
+                            <a href="{{ attachment.file.url }}" target="_blank"
+                            class="attachment-btn"
+                            title="Preview">👁</a>
+                            {% endif %}
+
+                            <a href="{{ attachment.file.url }}" download
+                            class="attachment-btn"
+                            title="Download">⬇</a>
+                        </div>
+
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="info-section">
+                    <h3>📋 Study Information</h3>
+                    <div class="info-item">
+                        <span class="info-label">Study ID:</span>
+                        <span class="info-value">{{ study.procedure_schedule.study_id }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Priority:</span>
+                        <span class="info-value">{{ study.get_exam_priority_display }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Upload Date:</span>
+                        <span class="info-value">{{ study.upload_time|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">File Name:</span>
+                        <span class="info-value">{{ study.file_name|truncatechars:30 }}</span>
+                    </div>
+                    {% if study.file_size %}
+                    <div class="info-item">
+                        <span class="info-label">File Size:</span>
+                        <span class="info-value">{{ study.file_size|filesizeformat }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="info-section">
+                    <h3>👤 Patient Information</h3>
+                    <div class="info-item">
+                        <span class="info-label">Name:</span>
+                        <span class="info-value">{{ patient.first_name }} {{ patient.last_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Patient ID:</span>
+                        <span class="info-value">{{ patient.patient_id }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">DOB:</span>
+                        <span class="info-value">{{ patient.date_of_birth|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+
+                {% if study.clinical_history %}
+                <div class="info-section">
+                    <h3>📝 Clinical History</h3>
+                    <p style="color: #ccc; font-size: 0.9em; line-height: 1.5;">
+                        {{ study.clinical_history }}
+                    </p>
+                </div>
+                {% endif %}
+
+                <div class="info-section">
+                    <h3>🔬 DICOM Metadata</h3>
+                    <div id="dicomMetadata">
+                        <p style="color: #888; font-size: 0.85em;">Loading metadata...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <div class="control-group">
+                <label class="control-label">Window Width:</label>
+                <div class="slider-container">
+                    <input type="range" id="windowWidth" min="1" max="4000" value="400" step="1">
+                    <span class="slider-value" id="wwValue">400</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">Window Center:</label>
+                <div class="slider-container">
+                    <input type="range" id="windowCenter" min="-1000" max="1000" value="40" step="1">
+                    <span class="slider-value" id="wcValue">40</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">Zoom:</label>
+                <div class="slider-container">
+                    <input type="range" id="zoomSlider" min="0.5" max="5" value="1" step="0.1">
+                    <span class="slider-value" id="zoomValue">1.0x</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function prepareReportData(event) {
+            const saveButton = event.target.querySelector('button[type="submit"]');
+            saveButton.disabled = true;
+
+            // Copy editor content into hidden inputs
+            document.getElementById("findingsInput").value =
+                document.getElementById("findingsEditor").innerHTML.trim();
+            document.getElementById("impressionInput").value =
+                document.getElementById("impressionEditor").innerHTML.trim();
+        }
+        // Global variable to store current DICOM URL
+        let currentDicomUrl = '{{ dicom_url }}';
+
+        // Wait for all libraries to load
+        window.addEventListener('load', function() {
+            console.log('Page loaded, checking libraries...');
+            
+            // Check if libraries are loaded
+            if (typeof cornerstone === 'undefined') {
+                document.getElementById('loadingOverlay').innerHTML = 
+                    '<div class="error-message"><strong>Library Loading Error</strong><br>Cornerstone library failed to load. Please check your internet connection and refresh the page.</div>';
+                return;
+            }
+
+            if (typeof cornerstoneWADOImageLoader === 'undefined') {
+                document.getElementById('loadingOverlay').innerHTML = 
+                    '<div class="error-message"><strong>Library Loading Error</strong><br>WADO Image Loader library failed to load. Please check your internet connection and refresh the page.</div>';
+                return;
+            }
+
+            console.log('All libraries loaded successfully!');
+            
+            // Initialize Cornerstone and tools
+            cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+            cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+            
+            // Configure WADO Image Loader
+            cornerstoneWADOImageLoader.configure({
+                beforeSend: function(xhr) {
+                    // Add custom headers if needed
+                },
+                errorInterceptor: function(error) {
+                    console.error('WADO Image Loader Error:', error);
+                }
+            });
+
+            if (typeof cornerstoneTools !== 'undefined') {
+                cornerstoneTools.external.cornerstone = cornerstone;
+                cornerstoneTools.external.Hammer = Hammer;
+                cornerstoneTools.external.cornerstoneMath = cornerstoneMath;
+            }
+            
+            const element = document.getElementById('dicomViewport');
+            
+            // Enable the element for Cornerstone
+            try {
+                cornerstone.enable(element);
+                console.log('Cornerstone enabled on element');
+            } catch (e) {
+                console.error('Failed to enable cornerstone:', e);
+                document.getElementById('loadingOverlay').innerHTML = 
+                    '<div class="error-message"><strong>Initialization Error</strong><br>' + e.message + '</div>';
+                return;
+            }
+            
+            // Add tools if cornerstoneTools is available
+            if (typeof cornerstoneTools !== 'undefined') {
+                cornerstoneTools.addTool(cornerstoneTools.PanTool);
+                cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+                
+                // Set initial tool
+                cornerstoneTools.setToolActive('Pan', { mouseButtonMask: 1 });
+            }
+            
+            // Load and display the DICOM image
+            function loadDicomImage(dicomUrl) {
+                // Show loading overlay
+                document.getElementById('loadingOverlay').style.display = 'flex';
+                
+                const imageId = 'wadouri:' + dicomUrl;
+                
+                console.log('Loading image ID:', imageId);
+                
+                cornerstone.loadImage(imageId).then(function(image) {
+                    console.log('Image loaded successfully!', image);
+                    
+                    cornerstone.displayImage(element, image);
+                    
+                    // Hide loading overlay
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    
+                    // Update viewport overlay
+                    updateViewportOverlay(image);
+                    
+                    // Extract and display metadata
+                    extractMetadata(image);
+                    
+                    // Setup window level controls
+                    setupWindowLevelControls(image);
+                    
+                }).catch(function(err) {
+                    console.error('Error loading DICOM:', err);
+                    document.getElementById('loadingOverlay').innerHTML = 
+                        '<div class="loading-content">' +
+                        '<div class="error-message">' +
+                        '<strong>❌ Error Loading DICOM Image</strong><br><br>' +
+                        '<strong>Error Message:</strong> ' + err.message + '<br><br>' +
+                        '<strong>DICOM URL:</strong> <code>' + dicomUrl + '</code><br><br>' +
+                        '<strong>Possible causes:</strong><br>' +
+                        '1. The file is not a valid DICOM file<br>' +
+                        '2. The file path is incorrect<br>' +
+                        '3. File permissions issue<br>' +
+                        '4. The file is corrupted<br><br>' +
+                        '<strong>Debug info:</strong><br>' +
+                        'Image ID: <code>' + imageId + '</code><br><br>' +
+                        '<a href="javascript:location.reload()" class="btn btn-primary" style="margin-right: 10px;">🔄 Retry</a> ' +
+                        '<a href="{% url 'reports' %}" class="btn btn-secondary">← Back to Reports</a>' +
+                        '</div></div>';
+                });
+            }
+            
+            // Update viewport overlay with image info
+            function updateViewportOverlay(image) {
+                const overlay = document.getElementById('viewportOverlay');
+                const viewport = cornerstone.getViewport(element);
+                
+                overlay.innerHTML = `
+                    <div>Image: ${image.width} × ${image.height}</div>
+                    <div>Zoom: ${(viewport.scale || 1).toFixed(2)}x</div>
+                    <div>WW/WC: ${Math.round(viewport.voi.windowWidth)} / ${Math.round(viewport.voi.windowCenter)}</div>
+                `;
+            }
+            
+            // Extract DICOM metadata
+            function extractMetadata(image) {
+                const metadataDiv = document.getElementById('dicomMetadata');
+                const dataSet = image.data;
+                
+                if (!dataSet) {
+                    metadataDiv.innerHTML = '<p style="color: #888;">No metadata available</p>';
+                    return;
+                }
+                
+                let metadataHtml = '';
+                
+                // Common DICOM tags
+                const tags = {
+                    'x00100010': 'Patient Name',
+                    'x00100020': 'Patient ID',
+                    'x00100030': 'Patient Birth Date',
+                    'x00080060': 'Modality',
+                    'x00080020': 'Study Date',
+                    'x00080030': 'Study Time',
+                    'x00200011': 'Series Number',
+                    'x00200013': 'Instance Number',
+                    'x00280010': 'Rows',
+                    'x00280011': 'Columns',
+                    'x00281050': 'Window Center',
+                    'x00281051': 'Window Width'
+                };
+                
+                for (let tag in tags) {
+                    try {
+                        const value = dataSet.string(tag);
+                        if (value) {
+                            metadataHtml += `
+                                <div class="info-item">
+                                    <span class="info-label">${tags[tag]}:</span>
+                                    <span class="info-value">${value}</span>
+                                </div>
+                            `;
+                        }
+                    } catch (e) {
+                        // Tag not found, skip
+                    }
+                }
+                
+                if (metadataHtml) {
+                    metadataDiv.innerHTML = metadataHtml;
+                } else {
+                    metadataDiv.innerHTML = '<p style="color: #888;">Limited metadata available</p>';
+                }
+            }
+            
+            // Setup window/level controls
+            function setupWindowLevelControls(image) {
+                const viewport = cornerstone.getViewport(element);
+                const wwSlider = document.getElementById('windowWidth');
+                const wcSlider = document.getElementById('windowCenter');
+                const wwValue = document.getElementById('wwValue');
+                const wcValue = document.getElementById('wcValue');
+                
+                // Set initial values
+                wwSlider.value = viewport.voi.windowWidth;
+                wcSlider.value = viewport.voi.windowCenter;
+                wwValue.textContent = Math.round(viewport.voi.windowWidth);
+                wcValue.textContent = Math.round(viewport.voi.windowCenter);
+                
+                // Window width slider
+                wwSlider.addEventListener('input', function() {
+                    const vp = cornerstone.getViewport(element);
+                    vp.voi.windowWidth = parseFloat(this.value);
+                    cornerstone.setViewport(element, vp);
+                    wwValue.textContent = Math.round(this.value);
+                    updateViewportOverlay(image);
+                });
+                
+                // Window center slider
+                wcSlider.addEventListener('input', function() {
+                    const vp = cornerstone.getViewport(element);
+                    vp.voi.windowCenter = parseFloat(this.value);
+                    cornerstone.setViewport(element, vp);
+                    wcValue.textContent = Math.round(this.value);
+                    updateViewportOverlay(image);
+                });
+                
+                // Zoom slider
+                const zoomSlider = document.getElementById('zoomSlider');
+                const zoomValue = document.getElementById('zoomValue');
+                
+                zoomSlider.addEventListener('input', function() {
+                    const vp = cornerstone.getViewport(element);
+                    vp.scale = parseFloat(this.value);
+                    cornerstone.setViewport(element, vp);
+                    zoomValue.textContent = parseFloat(this.value).toFixed(1) + 'x';
+                    updateViewportOverlay(image);
+                });
+            }
+            
+            // Tool buttons - Only for working tools
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tool = this.getAttribute('data-tool');
+                    
+                    // Reset view button
+                    if (this.id === 'resetTool') {
+                        cornerstone.reset(element);
+                        document.getElementById('zoomSlider').value = 1;
+                        document.getElementById('zoomValue').textContent = '1.0x';
+                        return;
+                    }
+                    
+                    // Invert colors button
+                    if (this.id === 'invertTool') {
+                        const viewport = cornerstone.getViewport(element);
+                        viewport.invert = !viewport.invert;
+                        cornerstone.setViewport(element, viewport);
+                        return;
+                    }
+                    
+                    // Pan and Zoom tools
+                    if (tool && typeof cornerstoneTools !== 'undefined') {
+                        // Deactivate all tools
+                        cornerstoneTools.setToolPassive('Pan');
+                        cornerstoneTools.setToolPassive('Zoom');
+                        
+                        // Activate selected tool
+                        cornerstoneTools.setToolActive(tool, { mouseButtonMask: 1 });
+                        
+                        // Update UI
+                        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                    }
+                });
+            });
+            
+            // Study selector dropdown functionality
+            const studySelect = document.getElementById('studySelect');
+            if (studySelect) {
+                studySelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const newFileUrl = selectedOption.getAttribute('data-file-url');
+                    
+                    if (newFileUrl) {
+                        // Build absolute URL
+                        const baseUrl = window.location.origin;
+                        const absoluteUrl = baseUrl + newFileUrl;
+                        
+                        // Update current DICOM URL
+                        currentDicomUrl = absoluteUrl;
+                        
+                        // Load the new DICOM image
+                        loadDicomImage(absoluteUrl);
+                    }
+                });
+            }
+            
+            // Update viewport info on changes
+            element.addEventListener('cornerstoneimagerendered', function(e) {
+                updateViewportOverlay(e.detail.image);
+            });
+            
+            // Load the initial DICOM image
+            loadDicomImage(currentDicomUrl);
+            
+            // Responsive viewport sizing
+            window.addEventListener('resize', function() {
+                cornerstone.resize(element);
+            });
+        });
+    </script>
+</body>
+</html>

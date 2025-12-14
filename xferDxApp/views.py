@@ -11,6 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.core.files.base import ContentFile
+from django.utils.html import strip_tags
 
 from weasyprint import HTML
 from datetime import date
@@ -20,6 +21,7 @@ from .models import Study, Patient, ProcedureSchedule, Attachment, Report
 from .decorators import role_required
 
 import os
+import re
 
 class CustomLoginView(LoginView):
     authentication_form = CustomLoginForm
@@ -45,7 +47,6 @@ def dashboard(request):
         'pending_reads': pending_reads,
     })
 
-@login_required
 @role_required('radtech', 'staff', 'admin')
 def patient(request):
     patients = Patient.objects.all()
@@ -59,13 +60,7 @@ def patient(request):
 def telehealth(request):
     return render(request, 'telehealth.html')
 
-@login_required
-@role_required('radtech', 'staff', 'admin')
-def dicom_upload(request):
-    return render(request, 'dicom_upload.html')
 
-@login_required
-@role_required('radiologist', 'admin')
 def reports(request):
     patients = Patient.objects.all()
     schedules = ProcedureSchedule.objects.select_related('patient').filter(status='uploaded').order_by('-date')
@@ -74,7 +69,6 @@ def reports(request):
         'schedules': schedules
     })
 
-@login_required
 @role_required('radtech', 'staff', 'admin')
 def add_patient(request):
 
@@ -128,7 +122,7 @@ def patient_detail(request, patient_id):
     
     return render(request, 'patient_detail.html', context)
 
-@login_required
+@role_required('radtech', 'staff', 'admin')
 def upload_dicom(request):
     form = DicomUploadForm(request.POST or None, request.FILES or None)
     dicom_images = Study.objects.select_related('patient', 'procedure_schedule').all()
@@ -360,6 +354,97 @@ def get_patient_procedures(request, patient_id):
     data = list(schedules)
     return JsonResponse({'procedures': data})
 
+def clean_editor_input(html):
+    if not html:
+        return ""
+
+    # Convert block and line-break tags into newlines
+    html = re.sub(r'<br\s*/?>', '\n', html)
+    html = re.sub(r'</div>', '\n', html)
+    html = re.sub(r'<div[^>]*>', '', html)
+
+    # Remove remaining HTML
+    text = strip_tags(html)
+
+    # Normalize excessive newlines
+    return text.strip()
+
+@role_required('radiologist')
+def dicom_viewer(request, study_id):
+    """Display DICOM viewer and save report for a specific study"""
+    study = get_object_or_404(Study, id=study_id)
+    patient = study.patient
+    schedule = study.procedure_schedule
+
+    dicom_url = request.build_absolute_uri(study.file.url)
+    current_procedure_type = schedule.procedure_type
+
+    # ✅ HANDLE REPORT SAVE
+    if request.method == "POST":
+        raw_findings = request.POST.get("findings", "")
+        raw_impression = request.POST.get("impression", "")
+
+        findings = clean_editor_input(raw_findings)
+        impression = clean_editor_input(raw_impression)
+
+        if findings and impression:
+            # Optional: prevent duplicate report for same procedure
+            report, created = Report.objects.get_or_create(
+                procedure_schedule=schedule,
+                defaults={
+                    "patient": patient,
+                    "findings": findings,
+                    "impression": impression,
+                    "created_by": request.user,
+                }
+            )
+
+            if not created:
+                # If you prefer updating instead of blocking:
+                report.findings = findings
+                report.impression = impression
+                report.created_by = request.user
+                report.save()
+
+            schedule.status = "finalized"
+            schedule.save()
+
+            age = calculate_age(patient.date_of_birth)
+
+            html = render_to_string(
+                "reports/template.html",
+                {
+                    "report": report,
+                    "patient": patient,
+                    "procedure_schedule": schedule,
+                    "age": age,
+                }
+            )
+
+            pdf = HTML(string=html, base_url=settings.STATIC_ROOT).write_pdf()
+            report.pdf.save(
+                f"Report_{patient.patient_id}.pdf",
+                ContentFile(pdf),
+                save=True,
+            )
+
+            return HttpResponse(pdf, content_type="application/pdf")
+
+    # ✅ GET MODE (viewer)
+    related_studies = Study.objects.filter(procedure_schedule=schedule).select_related("procedure_schedule").order_by("-upload_time")
+    attachments = study.attachments.all()
+
+    context = {
+        "study": study,
+        "patient": patient,
+        "dicom_url": dicom_url,
+        "related_studies": related_studies,
+        "current_procedure_type": current_procedure_type,
+        "attachments": attachments,
+    }
+
+    return render(request, "dicom_viewer.html", context)
+
 @login_required
 @csrf_exempt
 def update_study_info(request, study_id):
@@ -403,7 +488,7 @@ def get_uploaded_procedures(request):
 
     return JsonResponse({'procedures': list(procedures)})
 
-@login_required
+@role_required('radiologist', 'admin')
 def save_report(request):
     if request.method == "POST":
         patient_id = request.POST.get("patient_id")
@@ -452,3 +537,7 @@ def save_report(request):
 def calculate_age(birth_date):
     today = date.today()
     return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+@login_required
+def no_permission(request):
+    return render(request, 'forbidden.html', status=403)
