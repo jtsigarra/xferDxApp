@@ -22,6 +22,7 @@ from .decorators import role_required
 
 import os
 import re
+import threading
 
 class CustomLoginView(LoginView):
     authentication_form = CustomLoginForm
@@ -267,6 +268,14 @@ def radiologist_review(request):
     pending_studies = Study.objects.filter(status='pending').select_related('patient').prefetch_related('attachments')
     return render(request, 'radiologist_review.html', {'pending_studies': pending_studies})
 
+def send_mail_async(subject, message, recipients):
+    threading.Thread(
+        target=send_mail,
+        args=(subject, message, settings.DEFAULT_FROM_EMAIL, recipients),
+        kwargs={"fail_silently": True},
+        daemon=True,
+    ).start()
+
 @login_required
 def schedule_procedure(request):
     patients = Patient.objects.all()
@@ -316,16 +325,7 @@ def schedule_procedure(request):
             "Thank you,\nRadiology Department"
         )
         recipient = [patient.email_address]
-        send_mail(subject, message, None, recipient, fail_silently=False)
-
-        send_mail(
-            subject,
-            f"{patient.first_name} {patient.last_name} has been scheduled for a/an {procedure.title()} on {date} at {time}.",
-            None,
-            [patient.physician_email],
-            fail_silently=False,
-        )
-
+        send_mail_async(subject, message, recipient)
         return redirect('patient')
 
     return render(request, 'patients.html', {'patients': patients, 'schedules': schedules})
