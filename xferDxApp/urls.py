@@ -13,7 +13,7 @@ urlpatterns = [
     path('telehealth/', views.telehealth, name='telehealth'),
 
     # Reports
-    path('reports/', views.save_report, name='reports'),
+    path('reports/', views.reports, name='reports'),
     path('get-uploaded-procedures/', views.get_uploaded_procedures, name='get_uploaded_procedures'),
 
     # Patients
