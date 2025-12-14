@@ -153,16 +153,12 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app",
 ]
 
-if os.environ.get("CREATE_SUPERUSER") == "jtsigarra":
-    try:
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-
-        username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
-        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
-
-        if username and password and not User.objects.filter(username=username).exists():
-            User.objects.create_superuser(username=username, email="", password=password)
-            print("✅ Superuser created")
-    except Exception as e:
-        print("❌ Superuser creation error:", e)
+if os.getenv("DJANGO_SUPERUSER_USERNAME"):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    if not User.objects.filter(username=os.getenv("DJANGO_SUPERUSER_USERNAME")).exists():
+        User.objects.create_superuser(
+            os.getenv("DJANGO_SUPERUSER_USERNAME"),
+            os.getenv("DJANGO_SUPERUSER_EMAIL"),
+            os.getenv("DJANGO_SUPERUSER_PASSWORD"),
+        )
