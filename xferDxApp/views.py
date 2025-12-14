@@ -270,20 +270,13 @@ def radiologist_review(request):
     return render(request, 'radiologist_review.html', {'pending_studies': pending_studies})
 
 def send_mail_async(subject, message, recipients):
-    def _send():
-        try:
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                recipients,
-                fail_silently=False,  # show errors
-            )
-            print("EMAIL SENT TO:", recipients)
-        except Exception as e:
-            print("EMAIL FAILED:", e)
-
-    threading.Thread(target=_send, daemon=True).start()
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        recipients,
+        fail_silently=False,  # 👈 IMPORTANT
+    )
 
 
 @login_required
