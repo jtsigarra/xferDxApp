@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.utils import timezone
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.views import LoginView
@@ -16,6 +17,7 @@ from weasyprint import HTML
 from datetime import date
 import requests
 import re
+import threading
 
 from .forms import PatientForm, DicomUploadForm, CustomLoginForm
 from .models import Study, Patient, ProcedureSchedule, Attachment, Report
@@ -346,3 +348,71 @@ def get_uploaded_procedures(request):
     ).values('id', 'procedure_type', 'date')
 
     return JsonResponse({'procedures': list(procedures)})
+
+@login_required
+def schedule_procedure(request):
+    patients = Patient.objects.all()
+    schedules = ProcedureSchedule.objects.select_related('patient').order_by('-date', '-time')
+
+    if request.method == 'POST':
+        patient_id = request.POST.get('patient')
+        procedure = request.POST.get('procedure_type')
+        date = request.POST.get('date')
+        time = request.POST.get('time')
+        notes = request.POST.get('special_instructions')
+
+        if not all([patient_id, procedure, date, time]):
+            messages.error(request, "Please fill in all required fields.")
+            return redirect('patient')
+
+        patient = get_object_or_404(Patient, id=patient_id)
+
+        # Create schedule safely
+        for _ in range(3):
+            try:
+                with transaction.atomic():
+                    schedule = ProcedureSchedule.objects.create(
+                        patient=patient,
+                        procedure_type=procedure,
+                        date=date,
+                        time=time,
+                        special_instructions=notes
+                    )
+                break
+            except IntegrityError:
+                continue
+        else:
+            messages.error(request, "Failed to create a unique study ID.")
+            return redirect('patient')
+
+        # Optional email
+        if patient.email_address:
+            subject = f"Procedure Scheduled: {procedure.upper()}"
+            message = (
+                f"Dear {patient.first_name},\n\n"
+                f"Your procedure is scheduled on {date} at {time}.\n\n"
+                "Radiology Department"
+            )
+            send_mail_async(subject, message, [patient.email_address])
+
+        return redirect('patient')
+
+    return render(request, 'patients.html', {
+        'patients': patients,
+        'schedules': schedules,
+    })
+
+def send_mail_async(subject, message, recipients):
+    def _send():
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                recipients,
+                fail_silently=False,
+            )
+        except Exception as e:
+            print("EMAIL ERROR:", e)
+
+    threading.Thread(target=_send, daemon=True).start()
