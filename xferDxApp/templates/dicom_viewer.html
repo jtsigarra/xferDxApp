@@ -145,7 +145,7 @@
                             </div>
                         </div>
 
-                        <div class="attachment-actions">
+                        <!-- <div class="attachment-actions">
                             {% if attachment.file_type == "image" or attachment.file_type == "pdf" %}
                             <a href="{{ attachment.file.url }}" target="_blank"
                             class="attachment-btn"
@@ -155,7 +155,7 @@
                             <a href="{{ attachment.file.url }}" download
                             class="attachment-btn"
                             title="Download">⬇</a>
-                        </div>
+                        </div> -->
 
                     </div>
                     {% endfor %}
@@ -350,24 +350,12 @@
                     setupWindowLevelControls(image);
                     
                 }).catch(function(err) {
-                    console.error('Error loading DICOM:', err);
-                    document.getElementById('loadingOverlay').innerHTML = 
-                        '<div class="loading-content">' +
-                        '<div class="error-message">' +
-                        '<strong>❌ Error Loading DICOM Image</strong><br><br>' +
-                        '<strong>Error Message:</strong> ' + err.message + '<br><br>' +
-                        '<strong>DICOM URL:</strong> <code>' + dicomUrl + '</code><br><br>' +
-                        '<strong>Possible causes:</strong><br>' +
-                        '1. The file is not a valid DICOM file<br>' +
-                        '2. The file path is incorrect<br>' +
-                        '3. File permissions issue<br>' +
-                        '4. The file is corrupted<br><br>' +
-                        '<strong>Debug info:</strong><br>' +
-                        'Image ID: <code>' + imageId + '</code><br><br>' +
-                        '<a href="javascript:location.reload()" class="btn btn-primary" style="margin-right: 10px;">🔄 Retry</a> ' +
-                        '<a href="{% url 'reports' %}" class="btn btn-secondary">← Back to Reports</a>' +
-                        '</div></div>';
-                });
+                        console.error('Error loading DICOM:', err);
+
+                    document.getElementById('loadingOverlay').style.display = 'none';
+
+                    // Keep viewport empty
+                }); 
             }
             
             // Update viewport overlay with image info
